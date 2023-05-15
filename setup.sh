@@ -7,8 +7,6 @@ if [[ $network_update =~ ^[Yy]$ ]]; then
   read -p "Enter the new IP address of the server (10.10.10.10): " new_ip
   read -p "Enter the new netmask of the server (255.255.255.0): " new_netmask
   read -p "Enter the new gateway of the server (10.10.10.1): " new_gateway
-  read -p "Enter the new hostname of the server (pve1): " new_hostname
-  read -p "Enter the new domain for the server (example.com): " new_domain
 
   # Update /etc/network/interfaces
   sed -i "/^\\taddress /s/\\(.* \\).*/\\1$new_ip/" /etc/network/interfaces
