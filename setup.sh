@@ -1,11 +1,38 @@
 #!/bin/bash
 
-# Prompt the user for new server information
-read -p "Enter the new IP address of the server (10.10.10.10): " new_ip
-read -p "Enter the new netmask of the server (255.255.255.0): " new_netmask
-read -p "Enter the new gateway of the server (10.10.10.1): " new_gateway
-read -p "Enter the new hostname of the server (pve1): " new_hostname
-read -p "Enter the new domain for the server (example.com): " new_domain
+# Ask the user if they want to update the network details
+read -p "Do you want to enter new network details? (y/n): " network_update
+if [[ $network_update =~ ^[Yy]$ ]]; then
+  # Prompt the user for new server information
+  read -p "Enter the new IP address of the server (10.10.10.10): " new_ip
+  read -p "Enter the new netmask of the server (255.255.255.0): " new_netmask
+  read -p "Enter the new gateway of the server (10.10.10.1): " new_gateway
+  read -p "Enter the new hostname of the server (pve1): " new_hostname
+  read -p "Enter the new domain for the server (example.com): " new_domain
+
+  # Update /etc/network/interfaces
+  sed -i "/^\\taddress /s/\\(.* \\).*/\\1$new_ip/" /etc/network/interfaces
+  sed -i "/^\\tnetmask /s/\\(.* \\).*/\\1$new_netmask/" /etc/network/interfaces
+  sed -i "/^\\tgateway /s/\\(.* \\).*/\\1$new_gateway/" /etc/network/interfaces
+else
+  echo "Skipping network details update... Moving on"
+fi
+
+# Ask the user if they want to update the FQDN details
+read -p "Do you want to enter new FQDN details? (y/n): " fqdn_update
+if [[ $fqdn_update =~ ^[Yy]$ ]]; then
+  # Prompt the user for new FQDN information
+  read -p "Enter the new hostname of the server (pve1): " new_hostname
+  read -p "Enter the new domain for the server (example.com): " new_domain
+
+  # Update /etc/hosts
+  sed -i "2s/.*/$new_ip\t$new_hostname.$new_domain\t$new_hostname/" /etc/hosts
+
+  # Update /etc/hostname
+  echo "$new_hostname" > /etc/hostname
+else
+  echo "Skipping network details update... Moving on"
+fi
 
 # Rewrite /etc/apt/sources.list file
 echo "Rewriting /etc/apt/sources.list... "
@@ -47,17 +74,6 @@ echo "Removing Proxmox Subscription nag - METHOD 2... "
 wget -q -O rem_proxmox_popup.sh 'https://gist.github.com/tavinus/08a63e7269e0f70d27b8fb86db596f0d/raw/' && chmod +x rem_proxmox_popup.sh
 ./rem_proxmox_popup.sh
 echo "Complete"
-
-# Update /etc/network/interfaces
-sed -i "/^\\taddress /s/\\(.* \\).*/\\1$new_ip/" /etc/network/interfaces
-sed -i "/^\\tnetmask /s/\\(.* \\).*/\\1$new_netmask/" /etc/network/interfaces
-sed -i "/^\\tgateway /s/\\(.* \\).*/\\1$new_gateway/" /etc/network/interfaces
-
-# Update /etc/hosts
-sed -i "2s/.*/$new_ip\t$new_hostname.$new_domain\t$new_hostname/" /etc/hosts
-
-# Update /etc/hostname
-echo "$new_hostname" > /etc/hostname
 
 # Prompt to Restart network interfaces
 read -p "Do you want to restart network interfaces now (y/n)? " nic_answer
