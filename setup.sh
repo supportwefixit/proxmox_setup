@@ -1,14 +1,28 @@
 #!/bin/bash
 
-# Ask the user if they want to update the network details
+loading_animation() {
+  local pid=$1
+  local spin='. . . . .'
+  local delay='0.2'
+
+  while kill -0 $pid 2>/dev/null; do
+    for i in $spin; do
+      printf "\r%s" "$i"
+      sleep $delay
+      printf "\r "
+      sleep $delay
+    done
+  done
+  printf "\r"
+}
+
+# Network Update
 read -p "Do you want to enter new network details? (y/n): " network_update
 if [[ $network_update =~ ^[Yy]$ ]]; then
-  # Prompt the user for new server information
   read -p "Enter the new IP address of the server (10.10.10.10): " new_ip
   read -p "Enter the new netmask of the server (255.255.255.0): " new_netmask
   read -p "Enter the new gateway of the server (10.10.10.1): " new_gateway
 
-  # Update /etc/network/interfaces
   sed -i "/^\\taddress /s/\\(.* \\).*/\\1$new_ip/" /etc/network/interfaces
   sed -i "/^\\tnetmask /s/\\(.* \\).*/\\1$new_netmask/" /etc/network/interfaces
   sed -i "/^\\tgateway /s/\\(.* \\).*/\\1$new_gateway/" /etc/network/interfaces
@@ -16,17 +30,13 @@ else
   echo "Skipping network details update... Moving on"
 fi
 
-# Ask the user if they want to update the FQDN details
+# FQDN Update
 read -p "Do you want to enter new FQDN details? (y/n): " fqdn_update
 if [[ $fqdn_update =~ ^[Yy]$ ]]; then
-  # Prompt the user for new FQDN information
   read -p "Enter the new hostname of the server (pve1): " new_hostname
   read -p "Enter the new domain for the server (example.com): " new_domain
 
-  # Update /etc/hosts
   sed -i "2s/.*/$new_ip\t$new_hostname.$new_domain\t$new_hostname/" /etc/hosts
-
-  # Update /etc/hostname
   echo "$new_hostname" > /etc/hostname
 else
   echo "Skipping network details update... Moving on"
@@ -49,9 +59,17 @@ echo "Complete"
 # Prompt for Updates
 read -p "Do you want the server to update all packages now (y/n)? " update_answer
 if [[ $update_answer =~ ^[Yy]$ ]]; then
-  echo "System updating. Please wait..."
-  apt-get update > /dev/null
-  apt-get upgrade -y > /dev/null
+  # Run update and upgrade in the background
+  {
+    apt-get update > /dev/null
+    apt-get upgrade -y > /dev/null
+  } &
+
+  # Create a PID for the background process
+  pid=$!
+
+  loading_animation $pid
+
   echo "Updates Complete"
 else
   echo "Updates skipped... Moving on"
@@ -59,45 +77,29 @@ fi
 
 # Update CT Template list
 echo "Updating CT Template list... "
-pveam update > /dev/null
+pveam update > /
+null
 echo "Complete"
 
-# Remove Proxmox Subscription nag
+# Remove Proxmox Subscription nag - METHOD 1
 echo "Removing Proxmox Subscription nag - METHOD 1... "
-sed -Ezi.bak "s/(Ext.Msg.show\(\{\s+title: gettext\('No valid sub)/void\(\{ \/\/\1/g" /usr/share/javascript/proxmox-widget-toolkit/proxmoxlib.js && systemctl restart pveproxy.service
-echo "Complete"
+sed -Ezi.bak "s/(Ext.Msg.show\(\{\s+title: gettext\('No valid sub)/void\(\{ \/\/\1/g" /usr/share/javascript/proxmox-widget-toolkit/proxmoxlib.js
 
-# Remove Proxmox Subscription nag
+# Remove Proxmox Subscription nag - METHOD 2
 echo "Removing Proxmox Subscription nag - METHOD 2... "
-wget -q -O rem_proxmox_popup.sh 'https://gist.github.com/tavinus/08a63e7269e0f70d27b8fb86db596f0d/raw/' && chmod +x rem_proxmox_popup.sh
-./rem_proxmox_popup.sh
+SEDBIN="$(which sed)"
+TGTPATH='/usr/share/perl5/PVE/API2'
+TGTFILE='Subscription.pm'
+sed -i.bak 's/NotFound/Active/g' "$TGTPATH/$TGTFILE"
+sed -i.bak 's/notfound/active/g' "$TGTPATH/$TGTFILE"
 echo "Complete"
 
-# Prompt to Restart network interfaces
-read -p "Do you want to restart network interfaces now (y/n)? " nic_answer
-if [[ $nic_answer =~ ^[Yy]$ ]]; then
-  echo "Restarting network interfaces. Please wait..."
-  ifdown vmbr0 > /dev/null
-  ifup vmbr0 > /dev/null
-  echo "Restart Complete"
-else
-  echo "Skipped... Moving on"
-fi
-
-# Prompt to Restart network services
-read -p "Do you want to restart network services now (y/n)? " nicservices_answer
-if [[ $nicservices_answer_answer =~ ^[Yy]$ ]]; then
-  echo "Restarting network services. Please wait..."
-  systemctl restart networking > /dev/null
-  echo "Restart Complete"
-else
-  echo "Skipped... Moving on"
-fi
-
-# Prompt for reboot
+# Ask to restart the server
 read -p "Do you want to reboot the server now (y/n)? " reboot_answer
+
+# Restart the server
 if [[ $reboot_answer =~ ^[Yy]$ ]]; then
   reboot
 else
-  echo "Changes will take effect after the next reboot."
+  echo "All changes will take effect after the next reboot or service restart."
 fi
