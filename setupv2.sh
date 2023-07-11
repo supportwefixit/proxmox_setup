@@ -16,6 +16,11 @@ loading_animation() {
   printf "\r"
 }
 
+# Function to get the current IPv4 address
+get_current_ip() {
+  ip -o -4 addr show scope global | awk '{split($4,a,"/"); print a[1]}'
+}
+
 # Network Update
 read -p "Do you want to enter new network details? (y/n): " network_update
 if [[ $network_update =~ ^[Yy]$ ]]; then
@@ -34,11 +39,11 @@ if [[ $fqdn_update =~ ^[Yy]$ ]]; then
   read -p "Enter the new hostname of the server (pve1): " new_hostname
   read -p "Enter the new domain for the server (example.com): " new_domain
 
-  # Check if a new IP address is entered, if not, retain the current IP in /etc/hosts
+  # Check if a new IP address is entered, if not, use the current IP address
   if [[ -n $new_ip ]]; then
     sed -i "2s/.*/$new_ip\t$new_hostname.$new_domain\t$new_hostname/" /etc/hosts
   else
-    current_ip=$(grep -E "^\s*[^#]" /etc/hosts | awk '{print $1}' | head -n 1)
+    current_ip=$(get_current_ip)
     sed -i "2s/.*/$current_ip\t$new_hostname.$new_domain\t$new_hostname/" /etc/hosts
   fi
 
