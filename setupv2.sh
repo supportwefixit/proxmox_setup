@@ -47,7 +47,7 @@ if [[ $fqdn_update =~ ^[Yy]$ ]]; then
     sed -i "2s/.*/$current_ip\t$new_hostname.$new_domain\t$new_hostname/" /etc/hosts
   fi
 
-  echo "$new_hostname.$new_domain" > /etc/hostname
+  echo "$new_hostname" > /etc/hostname
 fi
 
 # Rewrite /etc/apt/sources.list file
@@ -85,8 +85,7 @@ fi
 
 # Update CT Template list
 echo "Updating CT Template list... "
-pveam update > /
-null
+pveam update > /dev/null
 echo "Complete"
 
 # Remove Proxmox Subscription nag - METHOD 1
